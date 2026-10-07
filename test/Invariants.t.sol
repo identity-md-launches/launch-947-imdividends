@@ -79,6 +79,26 @@ contract DividendHandler is Test {
         vm.warp(block.timestamp + bound(secondsSeed, 0, 3_600));
     }
 
+    function sync(uint256 accountSeed) external {
+        uint256 index = accountSeed % (actors.length + 3);
+        address account;
+        if (index < actors.length) account = actors[index];
+        else if (index == actors.length) account = address(token);
+        else if (index == actors.length + 1) account = address(vault);
+        // The remaining case exercises address(0).
+        uint256 balance = token.balanceOf(account);
+        uint256 earned = vault.earned(account);
+        uint256 totalShares = vault.totalShares();
+        vm.startPrank(OUTSIDER);
+        token.syncShares(account);
+        assertEq(vault.earned(account), earned, "sync changed previously earned rewards");
+        token.syncShares(account);
+        vm.stopPrank();
+        assertEq(vault.earned(account), earned, "repeated sync changed rewards");
+        assertEq(token.balanceOf(account), balance, "sync moved holder tokens");
+        assertEq(vault.totalShares(), totalShares, "sync changed already current shares");
+    }
+
     function distribute() external {
         if (
             vault.distributionsEnabled() && vault.totalShares() > 0 && vault.queuedRewards() > 0
@@ -237,7 +257,7 @@ contract DividendInvariantTest is Fixture {
         // Start with funded liabilities so even short random sequences exercise live accounting.
         handler.fund(600e6);
         handler.distribute();
-        bytes4[] memory selectors = new bytes4[](14);
+        bytes4[] memory selectors = new bytes4[](15);
         selectors[0] = handler.move.selector;
         selectors[1] = handler.fund.selector;
         selectors[2] = handler.convert.selector;
@@ -252,6 +272,7 @@ contract DividendInvariantTest is Fixture {
         selectors[11] = handler.emptyEligibleBalances.selector;
         selectors[12] = handler.sendToInfrastructure.selector;
         selectors[13] = handler.unauthorizedAdministration.selector;
+        selectors[14] = handler.sync.selector;
         targetSelector(FuzzSelector({addr: address(handler), selectors: selectors}));
         targetContract(address(handler));
     }

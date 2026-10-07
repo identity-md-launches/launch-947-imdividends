@@ -88,20 +88,29 @@ contract TokenAdversarialTest is Fixture {
         _give(ALICE, amount);
         vm.prank(ALICE);
         token.approve(operator, amount - 1);
+        bytes32 beforeState = _state();
         vm.prank(operator);
         vm.expectRevert(
             abi.encodeWithSelector(IERC20Errors.ERC20InsufficientAllowance.selector, operator, amount - 1, amount)
         );
         token.transferFrom(ALICE, BOB, amount);
-        assertEq(token.balanceOf(ALICE), amount);
+        assertEq(_state(), beforeState);
+        assertEq(token.allowance(ALICE, operator), amount - 1);
         vm.prank(ALICE);
         token.approve(operator, amount);
         vm.prank(operator);
         token.transferFrom(ALICE, BOB, amount);
-        assertEq(token.balanceOf(BOB), amount);
+        // Factory/distributor launch operations stay exempt. The PoolManager cannot
+        // waive the ordinary 7% tax by acting as a holder's approved operator.
+        uint256 fee = operator == MANAGER ? amount * 700 / 10_000 : 0;
+        assertEq(token.balanceOf(ALICE), 0);
+        assertEq(token.balanceOf(BOB), amount - fee);
         assertEq(token.allowance(ALICE, operator), 0);
-        assertEq(token.balanceOf(address(token)), 0);
-        assertEq(vault.shares(BOB), amount);
+        assertEq(token.balanceOf(address(token)), fee);
+        assertEq(vault.shares(ALICE), 0);
+        assertEq(vault.shares(BOB), amount - fee);
+        assertEq(vault.totalShares(), amount - fee);
+        assertEq(token.totalSupply(), 1_000_000_000 ether);
     }
 
     function testPendingOwnerReplacementCancellationAndRevocation() public {
@@ -139,6 +148,11 @@ contract TokenAdversarialTest is Fixture {
         _give(ALICE, 1);
         _start(600);
         token.transferOwnership(BOB);
+        vm.expectRevert(IMDIVIDENDS.UnsafeRenunciation.selector);
+        token.renounceOwnership();
+        assertEq(token.owner(), address(this));
+        assertEq(token.pendingOwner(), BOB);
+        token.setFeeBps(0);
         token.renounceOwnership();
         assertEq(token.owner(), address(0));
         assertEq(token.pendingOwner(), address(0));
