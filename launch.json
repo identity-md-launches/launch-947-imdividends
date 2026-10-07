@@ -1,0 +1,26 @@
+{
+  "kind": "custom_token",
+  "token": {
+    "contract": "IMDIVIDENDS",
+    "name": "IMDIVIDENDS",
+    "symbol": "DIVIDENDS",
+    "decimals": 18,
+    "constructorArgs": [
+      "$factory",
+      "$poolManager",
+      "$launchNumber",
+      "0x419c3cee9568cfa394d7cf39d59ae49c968e7405",
+      "0xd34a99bc0f67ae1bbd63c660e6d0b0dd03e263b7"
+    ],
+    "totalSupply": "1000000000000000000000000000"
+  },
+  "contracts": [],
+  "pool": {
+    "pairedCurrency": "0xd34a99bc0f67ae1bbd63c660e6d0b0dd03e263b7",
+    "fee": 3000,
+    "tickSpacing": 60,
+    "initialPrice": "128730526998924529441743555"
+  },
+  "economics": {"poolBps":7800,"initialMarketCapWei":"2640000000000000000000","remainderTo":"0x419c3cee9568cfa394d7cf39d59ae49c968e7405"},
+  "notes": "IMDIVIDENDS mints 1,000,000,000 DIVIDENDS with 18 decimals once, entirely to msg.sender (the launch factory). Constructor arguments are factory, PoolManager, uint64 launch number, requester owner, and reward token, in that order. The token constructor creates its immutable DividendVault internally; no separate application deployment or initialization call is required. Rewards use the selected paired ERC-20 at pool.pairedCurrency. The initial tax is 700 bps on ordinary transfers and PoolManager outflows to non-exempt holders, including buys and claim redemptions. Factory, registered distributor, token and vault endpoints are exempt, as are factory and registered distributor operators. Transfers into PoolManager, including sells and liquidity deposits, arrive whole; PoolManager has no operator exemption. Self-transfers are untaxed. Infrastructure balances are excluded from dividend shares. Only the token owner may change the fee (0-1000 bps), configure future vault periods (600-86400 seconds) or enable/disable funding and starting new periods, and convert collected fees. The requester is the initial owner; ownership transfers require acceptance by the new owner. Fee conversion is an owner-funded exchange: the owner supplies reward tokens to the vault for collected DIVIDENDS, with owner-selected pricing and no enforced minimum exchange rate beyond nonzero funding. Anyone may donate rewards and start a funded distribution period. Rewards accrue proportionally over an initially 600-second stream. Payouts require transactions through claim, claimFor or process (up to 50 accounts), with a fixed 600-second per-holder cooldown and first payout no earlier than 600 seconds after deployment. Ten-minute operation requires ongoing funding and keeper or holder transactions; it is not automatic. Configuration does not interrupt active streams or earned claims. The immutable reward token must support exact, non-rebasing ERC-20 transfers. pool.fee is the separate 0.3% pool trading fee. initialPrice records floor(sqrt(initialMarketCapWei / totalSupply) * 2^96), expressed as paired-currency minor units per DIVIDENDS minor unit with DIVIDENDS as currency0, solely for provenance. The deployer derives the actual opening price from the supplied economics and totalSupply using the deployed currency ordering."
+}
