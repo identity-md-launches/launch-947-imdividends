@@ -81,6 +81,7 @@ contract DividendVault is ReentrancyGuard {
     }
 
     function _fund(address payer, uint256 amount) private {
+        if (!distributionsEnabled) revert DistributionsDisabled();
         if (amount == 0 || amount > MAX_FUNDING - totalFunded) revert InvalidAmount();
         uint256 beforeBalance = rewardToken.balanceOf(address(this));
         rewardToken.safeTransferFrom(payer, address(this), amount);

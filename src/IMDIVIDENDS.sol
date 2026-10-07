@@ -21,6 +21,7 @@ contract IMDIVIDENDS is ERC20, Ownable2Step, ReentrancyGuard {
     error InvalidLaunchAddress();
     error FeeTooHigh();
     error InvalidConversion();
+    error UnsafeRenunciation();
 
     event FeeChanged(uint16 feeBps);
     event FeesConverted(address indexed payer, address indexed recipient, uint256 tokens, uint256 rewards);
@@ -52,6 +53,14 @@ contract IMDIVIDENDS is ERC20, Ownable2Step, ReentrancyGuard {
         dividendVault.configure(duration, enabled);
     }
 
+    /// @notice Renounce only after retiring the tax and keeping public reward distribution available.
+    function renounceOwnership() public override onlyOwner {
+        if (feeBps != 0 || balanceOf(address(this)) != 0 || !dividendVault.distributionsEnabled()) {
+            revert UnsafeRenunciation();
+        }
+        super.renounceOwnership();
+    }
+
     /// @notice Atomically buy collected fees with owner-supplied reward tokens.
     /// @dev Owner approves the vault for rewardAmount first. Pricing is an explicit owner trust
     /// assumption; this avoids an unconfigured router or manipulable spot-price oracle.
@@ -80,6 +89,12 @@ contract IMDIVIDENDS is ERC20, Ownable2Step, ReentrancyGuard {
         return _excluded(account, launchDistributor());
     }
 
+    /// @notice Refresh eligibility after registry registration without requiring a holder transfer.
+    /// @dev Checkpoints past rewards; cannot undo accrual before registration/synchronization.
+    function syncShares(address account) external {
+        dividendVault.setShares(account, _excluded(account, launchDistributor()) ? 0 : balanceOf(account));
+    }
+
     function _excluded(address account, address distributor) private view returns (bool) {
         return account == address(0) || account == address(this) || account == address(dividendVault)
             || account == factory || account == poolManager || account == distributor;
@@ -87,13 +102,19 @@ contract IMDIVIDENDS is ERC20, Ownable2Step, ReentrancyGuard {
 
     function _update(address from, address to, uint256 amount) internal override {
         address distributor = launchDistributor();
-        bool exempt = _excluded(from, distributor) || _excluded(to, distributor) || msg.sender == factory
-            || msg.sender == poolManager || (distributor != address(0) && msg.sender == distributor);
+        // Settlement deposits must arrive whole. Tax PoolManager outflows, including buys and
+        // claim redemptions, so a permissionless settle/take relay cannot bypass the transfer tax.
+        bool exempt = (from != poolManager && _excluded(from, distributor)) || _excluded(to, distributor)
+            || msg.sender == factory || (distributor != address(0) && msg.sender == distributor);
         uint256 fee = (exempt || from == to) ? 0 : (amount * feeBps) / 10_000;
         if (fee != 0) super._update(from, address(this), fee);
         super._update(from, to, amount - fee);
 
         // Only internal vault accounting runs on transfers; failed reward payouts cannot freeze ERC-20 transfers.
+        // Registration may have happened after the distributor received its allocation.
+        if (distributor != address(0) && dividendVault.shares(distributor) != 0) {
+            dividendVault.setShares(distributor, 0);
+        }
         dividendVault.setShares(from, _excluded(from, distributor) ? 0 : balanceOf(from));
         if (from != to) dividendVault.setShares(to, _excluded(to, distributor) ? 0 : balanceOf(to));
     }

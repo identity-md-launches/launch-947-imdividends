@@ -135,9 +135,15 @@ contract PoolIntegrationTest is Test {
         trader.swap(key, !tokenIsZero, -0.01 ether);
         uint256 bought = token.balanceOf(address(trader));
         assertGt(bought, 0);
+        uint256 gross = spent - token.balanceOf(address(manager));
+        uint256 fee = gross * token.feeBps() / 10_000;
+        assertGt(fee, 0);
+        assertEq(bought, gross - fee);
+        assertEq(token.balanceOf(address(token)), fee);
         trader.swap(key, tokenIsZero, -int256(bought));
         assertEq(token.balanceOf(address(trader)), 0);
-        assertEq(token.balanceOf(address(token)), 0);
+        assertEq(token.balanceOf(address(token)), fee);
+        assertEq(token.balanceOf(address(manager)), spent - fee);
         assertEq(token.dividendVault().shares(address(manager)), 0);
         assertEq(token.totalSupply(), 1_000_000_000 ether);
     }

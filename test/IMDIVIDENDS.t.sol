@@ -53,7 +53,7 @@ contract IMDIVIDENDSTest is Fixture {
         assertEq(token.allowance(ALICE, CAROL), type(uint256).max);
     }
 
-    function testLaunchAllocationsClaimsAndPoolFlowsAreExact() public {
+    function testExactLaunchAllocationsAndDepositsWithTaxedPoolOutflows() public {
         uint256 swarm = token.totalSupply() / 10;
         _give(DISTRIBUTOR, swarm);
         assertEq(token.balanceOf(DISTRIBUTOR), swarm);
@@ -64,18 +64,18 @@ contract IMDIVIDENDSTest is Fixture {
         _give(MANAGER, 1_000 ether);
         vm.prank(MANAGER);
         token.transfer(BOB, 100 ether);
-        assertEq(token.balanceOf(BOB), 100 ether);
+        assertEq(token.balanceOf(BOB), 93 ether);
         vm.prank(BOB);
-        token.approve(CAROL, 100 ether);
+        token.approve(CAROL, 93 ether);
         vm.prank(CAROL);
-        token.transferFrom(BOB, MANAGER, 100 ether);
-        assertEq(token.balanceOf(MANAGER), 1_000 ether);
+        token.transferFrom(BOB, MANAGER, 93 ether);
+        assertEq(token.balanceOf(MANAGER), 993 ether);
         assertEq(token.balanceOf(BOB), 0);
-        assertEq(token.balanceOf(address(token)), 0);
+        assertEq(token.balanceOf(address(token)), 7 ether);
         assertEq(vault.shares(MANAGER), 0);
     }
 
-    function testExemptOperatorsStillNeedApproval() public {
+    function testPoolManagerNeedsApprovalAndCannotWaiveTaxAsOperator() public {
         _give(ALICE, 100 ether);
         vm.prank(MANAGER);
         vm.expectRevert(abi.encodeWithSelector(IERC20Errors.ERC20InsufficientAllowance.selector, MANAGER, 0, 100 ether));
@@ -84,7 +84,8 @@ contract IMDIVIDENDSTest is Fixture {
         token.approve(MANAGER, 100 ether);
         vm.prank(MANAGER);
         token.transferFrom(ALICE, BOB, 100 ether);
-        assertEq(token.balanceOf(BOB), 100 ether);
+        assertEq(token.balanceOf(BOB), 93 ether);
+        assertEq(token.balanceOf(address(token)), 7 ether);
     }
 
     function testOwnerControlsFeesAndVaultButCannotSetConfiscatoryFee() public {

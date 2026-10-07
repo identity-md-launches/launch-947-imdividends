@@ -33,6 +33,7 @@ contract DividendHandler is Test {
     }
 
     function fund(uint256 amountSeed) external {
+        if (!vault.distributionsEnabled()) return;
         uint256 amount = bound(amountSeed, 1, 1e18);
         reward.mint(address(this), amount);
         reward.approve(address(vault), amount);
@@ -40,6 +41,7 @@ contract DividendHandler is Test {
     }
 
     function convert(uint256 amountSeed, uint256 rewardSeed, uint256 recipientSeed) external {
+        if (!vault.distributionsEnabled()) return;
         uint256 fees = token.balanceOf(address(token));
         if (fees == 0) return;
         uint256 amount = bound(amountSeed, 1, fees);

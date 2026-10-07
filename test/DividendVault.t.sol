@@ -122,10 +122,10 @@ contract DividendVaultTest is Fixture {
         vm.prank(ALICE);
         token.transfer(BOB, 100 ether);
         assertEq(token.balanceOf(BOB), 93 ether);
-        _fund(1e6);
         vm.expectRevert(DividendVault.DistributionsDisabled.selector);
         vault.distribute();
         token.configureVault(1 hours, true);
+        _fund(1e6);
         vault.distribute();
         assertEq(vault.streamEnd() - vault.streamStart(), 1 hours);
     }
